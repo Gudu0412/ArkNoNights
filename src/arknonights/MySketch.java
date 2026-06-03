@@ -7,9 +7,19 @@ import javax.swing.ImageIcon;
 import java.awt.Image;
 import java.awt.image.ImageObserver;
 
+// 💡 换回标准原生音频包，这次加入自动格式转换，彻底解决挑食和没声音的问题！
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.DataLine;
+
 public class MySketch extends PApplet {
 
     Person player;
+    
+    // 原生音频播放器载体
+    Clip bgmClip; 
     
     Image gifRight; 
     Image gifLeft;  
@@ -64,6 +74,7 @@ public class MySketch extends PApplet {
         
         player = new Person(startPixelX, startPixelY);
         
+        // 1. 加载地图背景
         try {
             File bgFile = new File("Image/background.png");
             if (bgFile.exists()) {
@@ -73,6 +84,49 @@ public class MySketch extends PApplet {
             }
         } catch (Exception e) {
             System.out.println("未找到 background.png");
+        }
+        
+        // 💡 2. 【核心优化：智能格式转换音频流加载机制】
+        try {
+            File musicFile = new File("Music/map1.wav");
+            String musicPath = musicFile.exists() ? musicFile.getPath() : dataPath("../Music/map1.wav");
+            File audioFile = new File(musicPath);
+
+            if (audioFile.exists()) {
+                // 1. 读取原始音频输入流
+                AudioInputStream baseInputStream = AudioSystem.getAudioInputStream(audioFile);
+                AudioFormat baseFormat = baseInputStream.getFormat();
+                
+                // 2. 强制定义 Java 能够完美识别的标准 PCM 签名格式
+                AudioFormat decodedFormat = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    baseFormat.getSampleRate(),
+                    16, // 16位
+                    baseFormat.getChannels(),
+                    baseFormat.getChannels() * 2,
+                    baseFormat.getSampleRate(),
+                    false // 小端字节序
+                );
+                
+                // 3. 在内存中将不标准的音频动态转换解码为标准音频流
+                AudioInputStream decodedInputStream = AudioSystem.getAudioInputStream(decodedFormat, baseInputStream);
+                
+                // 4. 将转换后的干净音频流塞进播放器
+                DataLine.Info info = new DataLine.Info(Clip.class, decodedFormat);
+                bgmClip = (Clip) AudioSystem.getLine(info);
+                bgmClip.open(decodedInputStream);
+                
+                // 5. 开启无限循环并开始播放
+                bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
+                bgmClip.start();
+                
+                System.out.println("🎵 [智能解码音频流] map1.wav 加载成功，高燃战歌已正常循环播放！");
+            } else {
+                System.out.println("🚨 找不到音频文件，请确认 Music 文件夹下是否存在 map1.wav");
+            }
+        } catch (Exception e) {
+            System.out.println("🚨 音频流系统提示：如果还是没声音，请确保 map1.wav 不是强行改后缀名得到的，需要用转换工具转成真正的 .wav 格式。");
+            e.printStackTrace();
         }
         
         gifRight = loadAwtGif("Image/cj.gif");
@@ -122,9 +176,7 @@ public class MySketch extends PApplet {
             lastHeight = height;
         }
 
-        // 1. 同步最新血量给底层
         player.targetHP = this.targetHP;
-
         player.update(width, height);
         player.updateTileSize(width, height);
 
@@ -145,7 +197,6 @@ public class MySketch extends PApplet {
             isSwitched = true; 
         }
         
-        // 2. 【伤害精度结算机制 + 命中后泄劲能量清除机制】
         if (isSwitched && targetHP > 0) {
             int playerCol = (int) (player.x / player.tileWidth);
             int playerRow = (int) (player.y / player.tileHeight);
@@ -161,14 +212,10 @@ public class MySketch extends PApplet {
                     
                     System.out.println("💥 [爆发成功] 输出核心伤害: " + realDamage + " | xxl 剩余生命: " + targetHP);
                     
-                    // 💡 【全新机制判定点】：一旦将这次高额的冲击伤害结算完毕
-                    // 立刻调用底层重置方法，瞬间让主角将积攒的冲刺动能全部归零清空！
                     player.resetSpeedAndTimer();
-                    
-                    hasDealtDamage = true; // 打开离断锁，防止黏墙产生多帧连击
+                    hasDealtDamage = true; 
                 }
             } else if (!isTouching) {
-                // 完全拉开距离后，重置离断锁
                 if (hasDealtDamage) {
                     hasDealtDamage = false;
                     System.out.println("🔄 已脱离碰撞，伤害和冲刺充能刷新！");
@@ -176,7 +223,6 @@ public class MySketch extends PApplet {
             }
         }
         
-        // 3. 渲染目标单位
         if (currentTargetGif != null && g2d != null && targetHP > 0) {
             float targetGridCol = (currentTargetGif == targetGifXX) ? 24.7f : 25.2f; 
             float targetGridRow = 15.0f; 
@@ -205,12 +251,6 @@ public class MySketch extends PApplet {
             int drawY = player.y - currentDrawHeight / 2;
             g2d.drawImage(currentGif, drawX, drawY, currentDrawWidth, currentDrawHeight, stableObserver);
             g.setModified(); 
-        }
-
-        if (isSwitched && targetHP <= 0) {
-            fill(0, 255, 0);
-            textSize(24);
-            textAlign(CENTER, CENTER);
         }
 
         if (debugMode) {
