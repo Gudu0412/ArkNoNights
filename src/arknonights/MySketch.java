@@ -33,6 +33,18 @@ public class MySketch extends PApplet {
     Image xxAttackGif;       
     Image currentTargetGif; 
 
+    // ==========================================
+    // 💡 新增：XXL 大招专属随机三大动图大管家
+    // ==========================================
+    Image xxSkillA;
+    Image xxSkillB;
+    Image xxSkillC;
+    Image xxCurrentSkillGif; // 💡 动态指针：指向当前正在随机播放的那一个大招动图
+    
+    float targetGifRatioXXSkillA = 1.0f;
+    float targetGifRatioXXSkillB = 1.0f;
+    float targetGifRatioXXSkillC = 1.0f;
+
     Image jzGif;
     Image jzDefaultGif;
     float jzGifRatio = 1.0f;
@@ -129,7 +141,7 @@ public class MySketch extends PApplet {
                     loadingStatus = "正在构建干员及敌方单位动画序列...";
                     gifRight = loadAwtGif("Image/cj.gif");
                     gifLeft = loadAwtGif("Image/jc.gif");
-                    cjAttackGif = loadAwtGif("Image/cj-attack.gif");
+                    cjAttackGif = loadAwtGif("Image/cj-attack.gif"); 
                     currentGif = gifRight; 
 
                     targetGifXX = loadAwtGif("Image/xx.gif");
@@ -137,9 +149,14 @@ public class MySketch extends PApplet {
                     xxAttackGif = loadAwtGif("Image/xx-attack.gif"); 
                     currentTargetGif = targetGifXX;
 
+                    // 💡 异步线程安全加载全新的三大技能特效动图
+                    xxSkillA = loadAwtGif("Image/xx-skill-A.gif");
+                    xxSkillB = loadAwtGif("Image/xx-skill-B.gif");
+                    xxSkillC = loadAwtGif("Image/xx-skill-C.gif");
+                    xxCurrentSkillGif = xxSkillA; // 默认初始化先指向A
+
                     jzGif = loadAwtGif("Operator/jz.gif");
                     jzDefaultGif = loadAwtGif("Operator/jz-default.gif");
-
                     Thread.sleep(100);
                     
                     loadingStatus = "正在渲染最终行动结算面板...";
@@ -172,7 +189,6 @@ public class MySketch extends PApplet {
             Image img = icon.getImage();
             int rawWidth = icon.getIconWidth();
             int rawHeight = icon.getIconHeight(); 
-
             if (rawWidth > 0) {
                 if (relativePath.equals("Image/cj.gif") || relativePath.equals("Image/jc.gif")) {
                     moveGifRatio = (float) rawHeight / rawWidth;
@@ -184,13 +200,18 @@ public class MySketch extends PApplet {
                     targetGifRatioXXL = (float) rawHeight / rawWidth;
                 } else if (relativePath.equals("Image/xx-attack.gif")) {
                     targetGifRatioXXAttack = (float) rawHeight / rawWidth; 
+                } else if (relativePath.equals("Image/xx-skill-A.gif")) {
+                    targetGifRatioXXSkillA = (float) rawHeight / rawWidth;
+                } else if (relativePath.equals("Image/xx-skill-B.gif")) {
+                    targetGifRatioXXSkillB = (float) rawHeight / rawWidth;
+                } else if (relativePath.equals("Image/xx-skill-C.gif")) {
+                    targetGifRatioXXSkillC = (float) rawHeight / rawWidth;
                 } else if (relativePath.equals("Operator/jz.gif")) {
                     jzGifRatio = (float) rawHeight / rawWidth;
                 } else if (relativePath.equals("Operator/jz-default.gif")) {
                     jzDefaultGifRatio = (float) rawHeight / rawWidth;
                 }
             }
-
             return img;
         } catch (Exception e) {
             return null;
@@ -211,25 +232,19 @@ public class MySketch extends PApplet {
                     textSize(18);
                 }
                 text(loadingStatus, width / 2f, height / 2f);
-                noFill(); 
-                stroke(0, 162, 232); 
-                strokeWeight(3);
+                noFill(); stroke(0, 162, 232); strokeWeight(3);
                 arc(width / 2f, height / 2f - 40, 40, 40, radians(frameCount * 5 % 360), radians(frameCount * 5 % 360 + 90));
                 break;
-
             case 0:
                 if (mainMenu != null) mainMenu.display();
                 break;
-
             case 1:
                 if (mapRenderer != null) mapRenderer.display(gameState, width, height);
                 if (stageSelector != null) stageSelector.display();
                 break;
-
             case 2:
                 drawGamePlay();
                 break;
-
             case 3:
                 drawGamePlay(); 
                 drawVictoryOverlay(); 
@@ -253,7 +268,6 @@ public class MySketch extends PApplet {
             if (!operatorHealth.isDead() && blockSys != null && !blockSys.isPlayerBlocked) {
                 player.update(width, height);
             }
-
             player.updateTileSize(width, height);
 
             int playerCol = (int) (player.x / player.tileWidth);  
@@ -281,15 +295,13 @@ public class MySketch extends PApplet {
             blockSys.updateBlockStatus(player, bossStatus.hp);
         }
         
-        if (bossStatus.hp <= 0) {
-            if (!hasPlayedDieSFX) {
+        if (bossStatus.hp <= 0 || operatorHealth.isDead()) {
+            if (bossStatus.hp <= 0 && !hasPlayedDieSFX) {
                 audioSys.playBossDieSFX(); 
                 hasPlayedDieSFX = true;    
             }
-
             if (blockSys != null) blockSys.isPlayerBlocked = false;   
             if (blockSys != null) blockSys.currentlyBlocked = 0;  
-
             isAttackingAnimation = false; 
         }
         
@@ -304,116 +316,115 @@ public class MySketch extends PApplet {
         
         if (isSwitched && bossStatus.hp > 0) {
             int currentMillis = millis();
+            int playerCol = (int) (player.x / player.tileWidth);
+            int playerRow = (int) (player.y / player.tileHeight);
             
-            if (blockSys != null && blockSys.isPlayerBlocked) {
-                if (!isAttackingAnimation && !operatorHealth.isDead()) {
-                    currentGif = cjAttackGif; 
-                    isAttackingAnimation = true; 
-                }
-                
-                if (currentMillis - lastAttackTime >= attackCooldown && !operatorHealth.isDead()) {
-                    float realDamage = player.getDamage(); 
-                    bossStatus.hp -= realDamage; 
+            if (currentMillis - lastAttackTime >= attackCooldown) {
+                boolean triggeredTick = false;
 
-                    if (bossStatus.hp < 0) bossStatus.hp = 0;
+                // 🟢 判定1：普通拦截拦截接敌阻挡
+                if (blockSys != null && blockSys.isPlayerBlocked) {
+                    if (!isAttackingAnimation && !operatorHealth.isDead()) {
+                        currentGif = cjAttackGif; 
+                        isAttackingAnimation = true; 
+                    }
+                    if (!operatorHealth.isDead()) {
+                        bossStatus.hp -= player.getDamage(); 
+                        if (bossStatus.hp < 0) bossStatus.hp = 0;
+                        
+                        operatorHealth.takeDamage(5.0f); 
+                        triggeredTick = true;
+                    }
+                }
+
+                // 🟠 判定2：大招决战技完美大对称十字范围轰炸机制
+                if (bossStatus.isSkillActive && !operatorHealth.isDead()) {
                     
-                    operatorHealth.takeDamage(5.0f); 
+                    // 📐 1. 0.5秒攻击生效的一瞬间，全自动全随机抽选下一次要播放的特效动图！
+                    int randomChoice = (int) random(3); // 生成 0, 1, 2
+                    if (randomChoice == 0 && xxSkillA != null) xxCurrentSkillGif = xxSkillA;
+                    else if (randomChoice == 1 && xxSkillB != null) xxCurrentSkillGif = xxSkillB;
+                    else if (randomChoice == 2 && xxSkillC != null) xxCurrentSkillGif = xxSkillC;
                     
+                    // 2. 检查阿消坐标
+                    boolean isPlayerInSkillRange = 
+                        ((playerCol >= 19 && playerCol <= 32) && (playerRow >= 15 && playerRow <= 18)) || 
+                        ((playerCol >= 21 && playerCol <= 27) && (playerRow >= 8 && playerRow <= 22));   
+                    
+                    if (isPlayerInSkillRange) {
+                        operatorHealth.takeDamage(2.0f); 
+                        System.out.println("💥 [大招轰炸] 随机动作变化！阿消吃了一记大招，HP-2");
+                    }
+
+                    // 3. 检查高台 JZ (24.2, 9.5)
+                    operatorHealth.takeDamage(2.0f); 
+                    triggeredTick = true;
+                }
+
+                if (triggeredTick) {
                     player.resetSpeedAndTimer(); 
                     lastAttackTime = currentMillis; 
                 }
-            } else {
-                if (isAttackingAnimation) {
-                    isAttackingAnimation = false; 
-                    currentGif = gifRight; 
-                }
+            }
+
+            if (blockSys != null && !blockSys.isPlayerBlocked && isAttackingAnimation) {
+                isAttackingAnimation = false; 
+                currentGif = gifRight; 
                 
-                int playerCol = (int) (player.x / player.tileWidth);
-                int playerRow = (int) (player.y / player.tileHeight);
-
-                boolean isTouching = (playerRow >= 15 && playerRow <= 17) && (playerCol >= 21 && playerCol <= 27);
-                boolean isPressingAnyKey = player.isUp || player.isDown || player.isLeft || player.isRight;
-                
-                if (isTouching && isPressingAnyKey && !operatorHealth.isDead()) {
-                    if (!hasDealtDamage && player.isJustCollided) {
-                        float realDamage = player.getDamage(); 
-                        bossStatus.hp -= realDamage; 
-
-                        if (bossStatus.hp < 0) bossStatus.hp = 0;
-
-                        player.resetSpeedAndTimer();
-                        hasDealtDamage = true; 
-                    }
-                } else if (!isTouching) {
-                    if (hasDealtDamage) {
-                        hasDealtDamage = false;
-                    }
-                }
-
-                lastAttackTime = currentMillis - attackCooldown + 200; 
             }
         }
         
+        // XXL 敌方单位渲染
         if (currentTargetGif != null && g2d != null && bossStatus.hp > 0) {
             float bodyGridCol = (currentTargetGif == targetGifXX) ? 23.2f : 23.7f; 
             float targetGridRow = 15.0f; 
 
             float bodyPixelX = bodyGridCol * player.tileWidth;
             float bodyPixelY = targetGridRow * player.tileHeight;
-            
             float xxDrawWidth = baseTargetWidth * ((float) width / 1024f);
             
             Image finalBossGif = currentTargetGif;
             float currentRatio = (currentTargetGif == targetGifXX) ? targetGifRatioXX : targetGifRatioXXL;
             
-            if (blockSys != null && blockSys.isPlayerBlocked && xxAttackGif != null && !operatorHealth.isDead()) {
-                finalBossGif = xxAttackGif;
-                currentRatio = targetGifRatioXXAttack;
+            // 💡 视觉路由器逻辑重构：
+            if (!operatorHealth.isDead()) {
+                if (bossStatus.isSkillActive) {
+                    // 1. 如果在大招持续期间期间期间：强行渲染刚刚随机抽中的那个特效 GIF 贴图！
+                    finalBossGif = xxCurrentSkillGif;
+                    if (xxCurrentSkillGif == xxSkillA) currentRatio = targetGifRatioXXSkillA;
+                    else if (xxCurrentSkillGif == xxSkillB) currentRatio = targetGifRatioXXSkillB;
+                    else if (xxCurrentSkillGif == xxSkillC) currentRatio = targetGifRatioXXSkillC;
+                } else if (blockSys != null && blockSys.isPlayerBlocked && xxAttackGif != null) {
+                    // 2. 如果没开大招只是普通阻挡：播普通攻击反击贴图
+                    finalBossGif = xxAttackGif;
+                    currentRatio = targetGifRatioXXAttack;
+                }
             }
             
             float xxDrawHeight = xxDrawWidth * currentRatio;
             float bodyX = bodyPixelX - xxDrawWidth / 2f;
             float bodyY = bodyPixelY - xxDrawHeight / 2f;
             
-            g2d.drawImage(
-                finalBossGif, 
-                (int) bodyX, 
-                (int) bodyY, 
-                (int) xxDrawWidth, 
-                (int) xxDrawHeight, 
-                stableObserver
-            );
-
+            g2d.drawImage(finalBossGif, (int)bodyX, (int)bodyY, (int)xxDrawWidth, (int)xxDrawHeight, stableObserver);
             bossStatus.display(player.tileWidth, player.tileHeight, 23.3f, 17.5f);
 
+            // 渲染高台 JZ
             if (jzGif != null || jzDefaultGif != null) {
                 float jzGridCol = 24.2f;
                 float jzGridRow = 9.5f;
-
                 boolean useDefault = millis() - jzDeployStartTime >= jzDeployAnimDuration;
-
                 Image currentJzGif = useDefault && jzDefaultGif != null ? jzDefaultGif : jzGif;
                 float currentJzRatio = useDefault && jzDefaultGif != null ? jzDefaultGifRatio : jzGifRatio;
 
                 if (currentJzGif != null) {
                     float jzPixelX = jzGridCol * player.tileWidth;
                     float jzPixelY = jzGridRow * player.tileHeight;
-
                     float jzDrawWidth = baseTargetWidth * ((float) width / 1024f);
                     float jzDrawHeight = jzDrawWidth * currentJzRatio;
-
                     float jzDrawX = jzPixelX - jzDrawWidth / 2f;
                     float jzDrawY = jzPixelY - jzDrawHeight / 2f;
 
-                    g2d.drawImage(
-                        currentJzGif,
-                        (int) jzDrawX,
-                        (int) jzDrawY,
-                        (int) jzDrawWidth,
-                        (int) jzDrawHeight,
-                        stableObserver
-                    );
-
+                    g2d.drawImage(currentJzGif, (int) jzDrawX, (int) jzDrawY, (int) jzDrawWidth, (int) jzDrawHeight, stableObserver);
                     g.setModified();
                 }
             }
@@ -429,17 +440,22 @@ public class MySketch extends PApplet {
         
         if (currentGif != null && g2d != null && !operatorHealth.isDead()) {
             float activeRatio = isAttackingAnimation ? attackGifRatio : moveGifRatio;
-
             int currentDrawWidth = (int) (baseTargetWidth * ((float) width / 1024f));
             int currentDrawHeight = (int) (currentDrawWidth * activeRatio);
-
             int drawX = player.x - currentDrawWidth / 2;
             int drawY = player.y - currentDrawHeight / 2;
-
             g2d.drawImage(currentGif, drawX, drawY, currentDrawWidth, currentDrawHeight, stableObserver);
             g.setModified(); 
             
             operatorHealth.display(player.x, player.y, player.tileWidth);
+        }
+
+        // 视觉校准层：大招期间淡淡画出十字大对称大招区区域
+        if (bossStatus.hp > 0 && bossStatus.isSkillActive) {
+            rectMode(CORNER);
+            fill(255, 0, 0, 30); stroke(255, 0, 0, 80);
+            rect(19 * player.tileWidth, 15 * player.tileHeight, (32-19)*player.tileWidth, (18-15)*player.tileHeight);
+            rect(21 * player.tileWidth, 8 * player.tileHeight, (27-21)*player.tileWidth, (22-8)*player.tileHeight);
         }
 
         if (debugMode) {
@@ -451,25 +467,20 @@ public class MySketch extends PApplet {
         fill(0, 0, 0, 100);
         noStroke();
         rect(0, 0, width, height);
-        
         imageMode(PApplet.CORNER); 
-        
         if (victoryPhase == 0) {
             if (finishPng != null) {
                 image(finishPng, 0, 0, width, height);
             } else {
-                textAlign(CENTER, CENTER); 
-                textSize(40); 
-                fill(255, 200, 0);
+                textAlign(CENTER, CENTER); textSize(40); fill(255, 200, 0);
                 text("OPERATION COMPLETE\n(点击屏幕任意处继续)", width / 2f, height / 2f);
             }
-        } else if (victoryPhase == 1) {
+        } 
+        else if (victoryPhase == 1) {
             if (realFinishPng != null) {
                 image(realFinishPng, 0, 0, width, height);
             } else {
-                textAlign(CENTER, CENTER); 
-                textSize(40); 
-                fill(60, 220, 100);
+                textAlign(CENTER, CENTER); textSize(40); fill(60, 220, 100);
                 text("STATS SETTLEMENT PANEL", width / 2f, height / 2f);
             }
         }
@@ -477,77 +488,75 @@ public class MySketch extends PApplet {
 
     private void drawDebugInfo() {
         textSize(10); 
-
         for (int row = 0; row < player.MAP_MATRIX.length; row++) {
             for (int col = 0; col < player.MAP_MATRIX[row].length; col++) {
                 float gridX = col * player.tileWidth;
                 float gridY = row * player.tileHeight;
-
                 if (player.MAP_MATRIX[row][col] == 1) {
                     fill(255, 0, 0, 60);  
                 } else {
                     fill(0, 255, 0, 10);  
                 }
-
                 stroke(255, 255, 255, 40); 
                 rect(gridX, gridY, player.tileWidth, player.tileHeight);
-
                 fill(255, 255, 255, 120); 
                 textAlign(LEFT, TOP);     
                 text(String.valueOf(col + 1), gridX + 3, gridY + 2);
             }
         }
-
         fill(255, 255, 0);
         textSize(16);
         textAlign(LEFT, BASELINE); 
-
-        text("FPS: " + (int) frameRate, 20, 30); 
+        text("FPS: " + (int)frameRate, 20, 30); 
         text("Player Pixel: (" + player.x + ", " + player.y + ")", 20, 50);
         
         if (blockSys != null) {
             text("阻挡状态: " + (blockSys.isPlayerBlocked ? "🔒 YES (独立阻挡管理器锁定)" : "🏃 NO (可自由活动)"), 20, 70);
-            text("当前已被占有名额: " + blockSys.currentlyBlocked + " / " + blockSys.maxBlockCount, 20, 90);
         }
-
-        text("XXL Target HP: " + (int) bossStatus.hp + " / 100", 20, 110);
-        text("阿消生命值 (HP): " + (int) operatorHealth.hp + " / " + (int) operatorHealth.maxHp + (operatorHealth.isDead() ? " ❌ (干员撤退)" : ""), 20, 130);
-        
-        int remain = attackCooldown - (millis() - lastAttackTime);
-        text("自动交战倒计时: " + (remain < 0 ? 0 : remain) + " ms", 20, 150);
-
-        text("JZ固定部署坐标: 第24.2列，第9.5行附近", 20, 170);
+        text("XXL 大招决战释放状态: " + (bossStatus.isSkillActive ? "🔥 ACTIVE (橙闪条倒扣中)" : "⏳ CHARGING (充能中)"), 20, 90);
+        // —— 💡 Debug 面板同步监控当前抽取的大招大招动图动作名称 ——
+        String nameStr = "NONE";
+        if (bossStatus.isSkillActive) {
+            if (xxCurrentSkillGif == xxSkillA) nameStr = "xx-skill-A.gif";
+            else if (xxCurrentSkillGif == xxSkillB) nameStr = "xx-skill-B.gif";
+            else if (xxCurrentSkillGif == xxSkillC) nameStr = "xx-skill-C.gif";
+        }
+        text("【当前出招动图索引】: " + nameStr, 20, 110);
+        text("XXL Target HP: " + (int)bossStatus.hp + " / 100", 20, 130);
+        text("阿消生命值 (HP): " + (int)operatorHealth.hp + " / " + (int)operatorHealth.maxHp, 20, 150);
     }
 
     @Override
     public void mousePressed() {
         if (gameState == -1) return;
-
         if (gameState == 0) {
             if (mainMenu.isStartClicked()) {
                 gameState = 1; 
                 audioSys.playLevelMapBGM();
             }
-        } else if (gameState == 1) {
+        } 
+        else if (gameState == 1) {
             if (stageSelector.isTD1Clicked(mouseX, mouseY)) {
                 gameState = 2;              
-                enterTime = millis();
-                jzDeployStartTime = millis();
-
+                enterTime = millis();       
+                jzDeployStartTime = millis(); 
                 hasPlayedDieSFX = false; 
                 
                 if (operatorHealth != null) operatorHealth.reset();
-                
                 if (blockSys != null) blockSys.reset();
-
+                if (bossStatus != null) {
+                    bossStatus.sp = 0;              
+                    bossStatus.isSkillActive = false; 
+                }
                 lastAttackTime = millis(); 
                 isAttackingAnimation = false; 
-
+                
                 audioSys.stopLevelMapBGM();
                 audioSys.playBGM();
                 audioSys.playCombinedStartSFX();
             }
-        } else if (gameState == 3) {
+        }
+        else if (gameState == 3) {
             if (victoryPhase == 0) {
                 victoryPhase = 1; 
             }
@@ -557,11 +566,10 @@ public class MySketch extends PApplet {
     @Override
     public void keyPressed() {
         if (keyCode == TAB) debugMode = !debugMode; 
-        
         if (gameState == 2) {
-            if (keyCode == UP || key == 'w' || key == 'W') player.isUp = true;
-            if (keyCode == DOWN || key == 's' || key == 'S') player.isDown = true;
-            if (keyCode == LEFT || key == 'a' || key == 'A') player.isLeft = true;
+            if (keyCode == UP    || key == 'w' || key == 'W') player.isUp = true;
+            if (keyCode == DOWN  || key == 's' || key == 'S') player.isDown = true;
+            if (keyCode == LEFT  || key == 'a' || key == 'A') player.isLeft = true;
             if (keyCode == RIGHT || key == 'd' || key == 'D') player.isRight = true;
         }
     }
@@ -569,9 +577,9 @@ public class MySketch extends PApplet {
     @Override
     public void keyReleased() {
         if (gameState == 2) {
-            if (keyCode == UP || key == 'w' || key == 'W') player.isUp = false;
-            if (keyCode == DOWN || key == 's' || key == 'S') player.isDown = false;
-            if (keyCode == LEFT || key == 'a' || key == 'A') player.isLeft = false;
+            if (keyCode == UP    || key == 'w' || key == 'W') player.isUp = false;
+            if (keyCode == DOWN  || key == 's' || key == 'S') player.isDown = false;
+            if (keyCode == LEFT  || key == 'a' || key == 'A') player.isLeft = false;
             if (keyCode == RIGHT || key == 'd' || key == 'D') player.isRight = false;
         }
     }
