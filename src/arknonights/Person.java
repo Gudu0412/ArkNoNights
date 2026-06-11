@@ -6,9 +6,16 @@ public class Person {
     // 外部同步变量：xxl 的当前血量。开局默认是 100
     public float targetHP = 100.0f;
     
+    // ==========================================
+    // 💡 新增同步变量：用于接收 Shu 的存活状态和位置
+    // ==========================================
+    public float shuHP = 0.0f;
+    public int shuCol = -1;
+    public int shuRow = -1;
+    
     // 【全新碰撞箱大小面板】恢复匀称体型，拒绝位移错觉！
-    private final int radiusX = 14;               
-    private final int radiusY = 10;               
+    private final int radiusX = 14;                
+    private final int radiusY = 10;                
     
     // 【速度手感微调面板】
     private float currentSpeedMultiplier;         
@@ -41,7 +48,7 @@ public class Person {
             }
         }
 
-        // 根据你的手载纸张数据，精准将可以走的平地区间挖成 0
+        // 精准将可以走的平地区间挖成 0
         setWalkable(6, 14, 16); setWalkable(6, 24, 35);
         setWalkable(7, 14, 15); setWalkable(7, 24, 25); setWalkable(7, 31, 35);
         for (int r = 8; r <= 9; r++) { setWalkable(r, 14, 20); setWalkable(r, 24, 25); }
@@ -125,7 +132,6 @@ public class Person {
 
         int currentTime = (int) System.currentTimeMillis();
 
-        // 1秒无有效位移宽限倒计时
         if (isMoving) {
             if (x != oldX || y != oldY) {
                 lastMoveTime = currentTime;
@@ -168,7 +174,15 @@ public class Person {
             return false;
         }
 
+        // XXL 的物理阻挡判定
         if (targetHP > 0 && row == 16 && (col >= 22 && col <= 26)) {
+            return false;
+        }
+
+        // ==========================================
+        // 💡 核心改动：Shu 的物理阻挡判定！
+        // ==========================================
+        if (shuHP > 0 && row == shuRow && col == shuCol) {
             return false;
         }
 
@@ -179,11 +193,10 @@ public class Person {
         return this.currentSpeedMultiplier;
     }
 
-    // 💡 【全新外部调用接口：撞人后能量耗尽瞬间重置】
     public void resetSpeedAndTimer() {
-        this.currentSpeedMultiplier = BASE_SPEED; // 速度和攻击力瞬间打回最低初始龟速状态！
-        this.timerStarted = false;               // 清空无位移卡墙防抖计时状态
-        this.isJustCollided = false;             // 强行关闭当下的物理撞击状态信号
+        this.currentSpeedMultiplier = BASE_SPEED; 
+        this.timerStarted = false;               
+        this.isJustCollided = false;             
     }
 
     public float getDamage() {

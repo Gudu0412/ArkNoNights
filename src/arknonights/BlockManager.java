@@ -5,53 +5,75 @@ import processing.core.PApplet;
 public class BlockManager {
     private PApplet parent;
 
-    // 💡 阻挡核心数据，内聚在管理器内部
-    public int maxBlockCount = 3;       // xxl 干员最大阻挡数（重装挡3）
-    public int currentlyBlocked = 0;     // 当前已被占用的阻挡名额
-    public boolean isPlayerBlocked = false; // 玩家当前是否处于被阻挡锁死状态
+    // 💡 阻挡核心数据
+    public int maxBlockCount = 3;       
+    public int currentlyBlocked = 0;     
+    public boolean isPlayerBlocked = false; 
+    
+    // ==========================================
+    // 💡 新增核心：精准追踪雷达！
+    // 0 = 自由态，1 = 被 XXL(Boss) 阻挡，2 = 被 Shu(黍) 阻挡
+    // ==========================================
+    public int blockedTarget = 0; 
 
     public BlockManager(PApplet parent) {
         this.parent = parent;
     }
 
-    // 💡 核心阻挡状态机更新：传入玩家对象、怪物血量，每帧自动判定
-    public void updateBlockStatus(Person player, float bossHp) {
-        // 1. 击杀联动判定：一旦 xxl 血量砸到 0，强行无条件立刻释放玩家
-        if (bossHp <= 0) {
-            isPlayerBlocked = false;
-            currentlyBlocked = 0;
+    // 💡 状态机升级：同时监控 Boss 和 Shu 的血量
+    public void updateBlockStatus(Person player, float bossHp, float shuHp) {
+        // 击杀释放判定
+        if (bossHp <= 0 && blockedTarget == 1) {
+            releaseBlock();
+            return;
+        }
+        if (shuHp <= 0 && blockedTarget == 2) {
+            releaseBlock();
             return;
         }
 
-        // 2. 算坐标大格子索引位置
         int playerCol = (int) (player.x / player.tileWidth);
         int playerRow = (int) (player.y / player.tileHeight);
 
-        // 判定玩家当前碰撞箱是否触碰到了 XXL 干员的九宫格阻挡物理控制区 (21列到27列)
-        boolean isTouching = (playerRow >= 15 && playerRow <= 17) && (playerCol >= 21 && playerCol <= 27);
+        // 判定 1: XXL 的物理控制区 (列 21~27, 行 15~17)
+        boolean touchingXXL = (bossHp > 0) && (playerRow >= 15 && playerRow <= 17) && (playerCol >= 21 && playerCol <= 27);
+        
+        // 判定 2: Shu 的物理控制区 (根据她的坐标 26列, 14.5行，划定周围一圈防区)
+        boolean touchingShu = (shuHp > 0) && (playerRow >= 13 && playerRow <= 15) && (playerCol >= 25 && playerCol <= 27);
 
-        if (isTouching) {
-            if (!isPlayerBlocked) {
-                // 如果尚未被拦截，且挡3名额未满，进行锁定！
-                if (currentlyBlocked < maxBlockCount) {
-                    isPlayerBlocked = true;
-                    currentlyBlocked++;
-                    System.out.println("🔒 [阻挡组件] 目标踩入控制区，拦截成功！名额: " + currentlyBlocked + "/3");
-                }
+        if (touchingXXL) {
+            if (blockedTarget != 1) {
+                isPlayerBlocked = true;
+                blockedTarget = 1; // 锁定为 XXL
+                currentlyBlocked++;
+                System.out.println("🔒 [阻挡组件] 被 XXL 恐怖的质量拦截了！");
             }
-        } else {
-            // 脱离控制区，释放状态
-            if (isPlayerBlocked) {
-                isPlayerBlocked = false;
-                if (currentlyBlocked > 0) currentlyBlocked--;
-                System.out.println("🔓 [阻挡组件] 脱离控制区，释放名额。");
+        } 
+        else if (touchingShu) {
+            if (blockedTarget != 2) {
+                isPlayerBlocked = true;
+                blockedTarget = 2; // 锁定为 Shu
+                currentlyBlocked++;
+                System.out.println("🌿 [阻挡组件] 被 Shu (黍) 的阵线拦下！开启单方面木桩训练！");
             }
+        } 
+        else {
+            releaseBlock();
         }
     }
 
-    // 💡 关卡重置方法
+    private void releaseBlock() {
+        if (isPlayerBlocked) {
+            isPlayerBlocked = false;
+            blockedTarget = 0;
+            if (currentlyBlocked > 0) currentlyBlocked--;
+            System.out.println("🔓 [阻挡组件] 脱离控制区，释放阻挡名额。");
+        }
+    }
+
     public void reset() {
         isPlayerBlocked = false;
         currentlyBlocked = 0;
+        blockedTarget = 0;
     }
 }
