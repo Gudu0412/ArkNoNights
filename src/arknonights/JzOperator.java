@@ -10,13 +10,13 @@ public class JzOperator {
     public final int GRID_ROW = 8;  
 
     public float sp = 0.0f;
-    public float maxSp = 100.0f;
+    public final float maxSp = 100.0f;
     public float spChargeSpeed = 0.25f; 
 
     public int status = 0;
     public int deployStartTime = 0; 
     
-    // 💡 新增：引爆瞬间点火信号脉冲
+    // 💡 Signal Pulse for Ignition SFX Triggering
     public boolean justBombed = false; 
 
     private int bombStartTime = 0;
@@ -31,7 +31,7 @@ public class JzOperator {
             if (currentMillis - bombStartTime >= bombDuration) {
                 status = 0;
                 sp = 0.0f; 
-                System.out.println("🛫 [JZ干员] 动作闭环！瞬间切回常态空战巡逻姿态。");
+                System.out.println("🛫 [JZ Operator] Action loop completed! Returning to default aerial patrol cruise.");
             }
             return;
         }
@@ -42,7 +42,7 @@ public class JzOperator {
                 if (sp >= maxSp) {
                     sp = maxSp;
                     status = 1; 
-                    System.out.println("⚡ [JZ干员] 充能满额 100！拦截雷达区域扩散就绪！");
+                    System.out.println("⚡ [JZ Operator] Charge maximum reached! Interception radar zone deployment ready!");
                 }
             }
         }
@@ -56,9 +56,9 @@ public class JzOperator {
                 status = 2; 
                 bombStartTime = currentMillis;
                 
-                justBombed = true; // ⚡ 点火！瞬间拉高触发信号，告诉主类播声音！
+                justBombed = true; // Ignite! Pulses the trigger signal to let MySketch play sound
                 operatorHealth.takeDamage(10.0f); 
-                System.out.println("💥 [雷达触发] 精准捕获！目标踏入 JZ 战术防区拦截范围！造成 10 点爆发伤害！");
+                System.out.println("💥 [Radar Triggered] Precision lock! Target entered JZ tactical interception perimeter! Dealt 10 burst damage!");
             }
         }
     }

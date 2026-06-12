@@ -3,21 +3,21 @@ package arknonights;
 public class Person {
     public int x, y;
     
-    // 外部同步变量：xxl 的当前血量。开局默认是 100
+    // External synchronized variable: XXL's current health. Defaults to 100 on setup.
     public float targetHP = 100.0f;
     
-    // ==========================================
-    // 💡 新增同步变量：用于接收 Shu 的存活状态和位置
-    // ==========================================
+    // =========================================================================
+    // 💡 Synchronized Variables: Tracking Shu's survival state and map grid coordinates
+    // =========================================================================
     public float shuHP = 0.0f;
     public int shuCol = -1;
     public int shuRow = -1;
     
-    // 【全新碰撞箱大小面板】恢复匀称体型，拒绝位移错觉！
+    // Balanced bounding box proportions to prevent movement artifacts
     private final int radiusX = 14;                
     private final int radiusY = 10;                
     
-    // 【速度手感微调面板】
+    // Movement Tuning Configurations
     private float currentSpeedMultiplier;         
     private final float BASE_SPEED = 0.8f;         
     private final float MAX_SPEED = 5.5f;          
@@ -30,25 +30,25 @@ public class Person {
     public float tileWidth;
     public float tileHeight;
 
-    // 全方向初次接触伤害标记
+    // Direct registration flag for initial impact collisions across all directions
     public boolean isJustCollided = false; 
 
-    // 无有效位移的计时缓冲核心变量
+    // Time-decay anchor tracking intervals without active positional displacement
     private int lastMoveTime = 0;         
     private boolean timerStarted = false; 
 
-    // 26行 × 48列 碰撞矩阵
+    // 26 Rows × 48 Columns Static Grid Collision Matrix
     public final int[][] MAP_MATRIX = new int[26][48];
 
     {
-        // 默认初始化：先把所有格子全部填满 1
+        // Default Configuration: Hardcode entire layout block structure as un-walkable (1)
         for (int r = 0; r < 26; r++) {
             for (int c = 0; c < 48; c++) {
                 MAP_MATRIX[r][c] = 1;
             }
         }
 
-        // 精准将可以走的平地区间挖成 0
+        // Map Grid Excavation: Carve out valid walkable corridors (0) using 1-based indexing offsets
         setWalkable(6, 14, 16); setWalkable(6, 24, 35);
         setWalkable(7, 14, 15); setWalkable(7, 24, 25); setWalkable(7, 31, 35);
         for (int r = 8; r <= 9; r++) { setWalkable(r, 14, 20); setWalkable(r, 24, 25); }
@@ -174,13 +174,13 @@ public class Person {
             return false;
         }
 
-        // XXL 的物理阻挡判定
+        // XXL Custom Bounding Solid Wall Logic
         if (targetHP > 0 && row == 16 && (col >= 22 && col <= 26)) {
             return false;
         }
 
         // ==========================================
-        // 💡 核心改动：Shu 的物理阻挡判定！
+        // 💡 Shu solid obstruction logic block
         // ==========================================
         if (shuHP > 0 && row == shuRow && col == shuCol) {
             return false;

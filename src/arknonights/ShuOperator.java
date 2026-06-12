@@ -6,23 +6,23 @@ import java.awt.Image;
 public class ShuOperator {
     private PApplet parent;
 
-    // 坐标位置
+    // Grid Coordinates
     public float GRID_COL = 26.0f; 
     public float GRID_ROW = 11.0f;  
     
-    // 人物贴图偏移（控制本体位置）
+    // Character Texture Visual Offsets (Controls the raw base texture positioning)
     public float visualOffsetX = 0.0f; 
     public float visualOffsetY = 0.0f; 
 
-    // ==========================================
-    // 💡 新增：血条专属偏移微调器！专门对付透明画布
-    // ==========================================
-    // 目前根据你的截图，我预设向右挪 45 像素，向上挪 50 像素。
-    // 如果进去发现还差一点，你自己加减这两个数字就行！
-    public float barOffsetX = 5.0f;  // 正数往右移，负数往左移
-    public float barOffsetY = 45.0f; // 负数往上移，正数往下移
+    // =========================================================================
+    // 💡 Status Bar Offset Adjusters: Dedicated to transparent frame canvas corrections
+    // =========================================================================
+    // Initial configuration presets to shift rightward and upward. 
+    // You can fine-tune these values manually if alignment tweaks are needed!
+    public float barOffsetX = 5.0f;  // Positive values shift right, negative values shift left
+    public float barOffsetY = 45.0f; // Negative values shift upward, positive values shift downward
 
-    // --- 核心属性 ---
+    // --- Core Attributes ---
     public float hp = 70.0f;      
     public float maxHp = 100.0f;
     public float sp = 0.0f;
@@ -49,7 +49,7 @@ public class ShuOperator {
             if (hp > maxHp) hp = maxHp; 
             
             sp = 0.0f; 
-            System.out.println("✨ [黍-技能] 释放：地生五谷！恢复 30% 生命值，当前 HP: " + (int)hp);
+            System.out.println("✨ [Shu-Skill] Activated: Shield of Grain! Regenerated 30% HP pool. Current HP: " + (int)hp);
         }
     }
 
@@ -79,7 +79,8 @@ public class ShuOperator {
             if (currentImg.getWidth(null) > 0) {
                 g2d.drawImage(currentImg, (int) drawX, (int) drawY, (int) baseDrawWidth, (int) drawHeight, observer);
                 
-                // 💡 修复：血条坐标已与图片的顶部解绑！改用稳定中心点 (pixelY) + 独立微调偏移量
+                // 💡 Status bars coordinate metrics decoupled from variable bounding boxes.
+                // Uses the stabilized center anchor (pixelY) with absolute translation modifiers.
                 drawStatusBars(pixelX + barOffsetX, pixelY + barOffsetY, tileWidth);
             }
         }
@@ -95,16 +96,19 @@ public class ShuOperator {
         parent.pushStyle();
         parent.noStroke();
 
+        // Render backing tray containers
         parent.fill(35, 38, 43, 200);
         parent.rect(startX, y, fixedBarW, hpBarH, 1);
         parent.rect(startX, y + hpBarH + gap, fixedBarW, spBarH, 1);
 
+        // HP Logic: Set cyan above threshold limit, flash crimson during dangerous states
         if (hp > maxHp * 0.5f) parent.fill(0, 162, 232); 
         else parent.fill(237, 28, 36);                  
         
         float currentHpW = PApplet.map(hp, 0, maxHp, 0, fixedBarW);
         parent.rect(startX, y, currentHpW, hpBarH, 1);
 
+        // SP Logic Track: Vibrant Green
         parent.fill(34, 177, 76); 
         float currentSpW = PApplet.map(sp, 0, maxSp, 0, fixedBarW);
         parent.rect(startX, y + hpBarH + gap, currentSpW, spBarH, 1);

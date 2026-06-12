@@ -5,59 +5,60 @@ import processing.core.PApplet;
 public class PlayerHealth {
     private PApplet parent;
     
-    // 💡 核心属性
+    // 💡 Core Attributes
     public float hp;
     public float maxHp;
 
-    // 💡 构造函数：创建时只需传入最大血量即可
+    // 💡 Constructor: Set the baseline pool using maximum HP configuration
     public PlayerHealth(PApplet parent, float maxHp) {
         this.parent = parent;
         this.maxHp = maxHp;
-        this.hp = maxHp; // 默认满血出生
+        this.hp = maxHp; // Spawns with full HP by default
     }
 
-    // 💡 封装的受击方法
+    // 💡 Encapsulated Damage Handler
     public void takeDamage(float damage) {
         hp -= damage;
         if (hp < 0) hp = 0;
     }
 
-    // 💡 封装的死亡判定
+    // 💡 Encapsulated Fatal State Checker
     public boolean isDead() {
         return hp <= 0;
     }
 
-    // 💡 封装的重置回血方法（用于重新开局或医疗干员奶人）
+    // 💡 Encapsulated Reset Handler (Used for hard resets or Medic healing bursts)
     public void reset() {
         hp = maxHp;
     }
 
-    // 💡 视觉渲染：在干员脚底画一个专属的动态小血条！
+    // 💡 Visual Rendering: Draw a localized dynamic status bar beneath the Operator's feet!
     public void display(float pixelX, float pixelY, float tileWidth) {
-        if (isDead()) return; // 撤退了就不画了
+        if (isDead()) return; // Prevent rendering if the unit has retreated/defeated
 
-        // 设定血条的宽和高
+        // Configure bounding frame width and height metrics
         float barWidth = tileWidth * 0.8f; 
         float barHeight = 4.0f;
-        // 把血条居中并放到干员脚底的位置
+        
+        // Center the coordinate layout anchor directly beneath the unit model
         float drawX = pixelX - barWidth / 2.0f;
         float drawY = pixelY + tileWidth / 1.5f; 
 
-        // 1. 画黑色半透明底槽
+        // 1. Render black translucent background track container
         parent.fill(0, 0, 0, 150);
         parent.noStroke();
         parent.rect(drawX, drawY, barWidth, barHeight);
 
-        // 2. 根据剩余血量算出当前色块的长度
+        // 2. Map current remaining pool ratio against frame canvas scale
         float currentHpWidth = PApplet.map(hp, 0, maxHp, 0, barWidth);
         
-        // 3. 动态变色机制：健康绿 -> 警告黄 -> 濒死红
+        // 3. Dynamic Threshold Coloring: Healthy Green -> Warning Yellow -> Critical Red
         if (hp > maxHp * 0.5f) {
-            parent.fill(0, 255, 0);   // 大于一半是绿色
+            parent.fill(0, 255, 0);   // Above 50% pool threshold: Green
         } else if (hp > maxHp * 0.2f) {
-            parent.fill(255, 255, 0); // 丝血前是黄色
+            parent.fill(255, 255, 0); // Above 20% pool threshold: Yellow
         } else {
-            parent.fill(255, 0, 0);   // 濒死是红色
+            parent.fill(255, 0, 0);   // Danger status threshold: Red
         }
         
         parent.rect(drawX, drawY, currentHpWidth, barHeight);

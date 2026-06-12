@@ -5,14 +5,14 @@ import processing.core.PApplet;
 public class BlockManager {
     private PApplet parent;
 
-    // 💡 阻挡核心数据
-    public int maxBlockCount = 3;       
-    public int currentlyBlocked = 0;     
-    public boolean isPlayerBlocked = false; 
-    
+    // --- Core Blocking Data ---
+    public int maxBlockCount = 3;       // Max block capacity for operators
+    public int currentlyBlocked = 0;     // Current number of blocked targets
+    public boolean isPlayerBlocked = false; // Whether the player is currently blocked and locked
+
     // ==========================================
-    // 💡 新增核心：精准追踪雷达！
-    // 0 = 自由态，1 = 被 XXL(Boss) 阻挡，2 = 被 Shu(黍) 阻挡
+    // 💡 Target Tracking Radar
+    // 0 = Free state, 1 = Blocked by XXL (Boss), 2 = Blocked by Shu
     // ==========================================
     public int blockedTarget = 0; 
 
@@ -20,9 +20,9 @@ public class BlockManager {
         this.parent = parent;
     }
 
-    // 💡 状态机升级：同时监控 Boss 和 Shu 的血量
+    // 💡 State Machine Update: Monitors both Boss and Shu health simultaneously
     public void updateBlockStatus(Person player, float bossHp, float shuHp) {
-        // 击杀释放判定
+        // Elimination Release Check
         if (bossHp <= 0 && blockedTarget == 1) {
             releaseBlock();
             return;
@@ -35,26 +35,26 @@ public class BlockManager {
         int playerCol = (int) (player.x / player.tileWidth);
         int playerRow = (int) (player.y / player.tileHeight);
 
-        // 判定 1: XXL 的物理控制区 (列 21~27, 行 15~17)
+        // Zone 1: XXL Physical Control Area (Col 21~27, Row 15~17)
         boolean touchingXXL = (bossHp > 0) && (playerRow >= 15 && playerRow <= 17) && (playerCol >= 21 && playerCol <= 27);
         
-        // 判定 2: Shu 的物理控制区 (根据她的坐标 26列, 14.5行，划定周围一圈防区)
+        // Zone 2: Shu Physical Control Area (Around Col 26, Row 14.5)
         boolean touchingShu = (shuHp > 0) && (playerRow >= 13 && playerRow <= 15) && (playerCol >= 25 && playerCol <= 27);
 
         if (touchingXXL) {
             if (blockedTarget != 1) {
                 isPlayerBlocked = true;
-                blockedTarget = 1; // 锁定为 XXL
+                blockedTarget = 1; // Locked onto XXL
                 currentlyBlocked++;
-                System.out.println("🔒 [阻挡组件] 被 XXL 恐怖的质量拦截了！");
+                System.out.println("🔒 [Block Manager] Intercepted by XXL's massive mass!");
             }
         } 
         else if (touchingShu) {
             if (blockedTarget != 2) {
                 isPlayerBlocked = true;
-                blockedTarget = 2; // 锁定为 Shu
+                blockedTarget = 2; // Locked onto Shu
                 currentlyBlocked++;
-                System.out.println("🌿 [阻挡组件] 被 Shu (黍) 的阵线拦下！开启单方面木桩训练！");
+                System.out.println("🌿 [Block Manager] Intercepted by Shu's defensive line! Entering target dummy training mode!");
             }
         } 
         else {
@@ -67,10 +67,11 @@ public class BlockManager {
             isPlayerBlocked = false;
             blockedTarget = 0;
             if (currentlyBlocked > 0) currentlyBlocked--;
-            System.out.println("🔓 [阻挡组件] 脱离控制区，释放阻挡名额。");
+            System.out.println("🔓 [Block Manager] Escaped control zone. Block slot released.");
         }
     }
 
+    // 💡 Stage Reset Method
     public void reset() {
         isPlayerBlocked = false;
         currentlyBlocked = 0;

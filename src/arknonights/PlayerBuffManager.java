@@ -5,38 +5,38 @@ import processing.core.PApplet;
 public class PlayerBuffManager {
     private PApplet parent;
 
-    public int shieldCount = 0;       // 剩余格挡次数
-    public float damageMultiplier = 1.0f; // 攻击力倍率（1.0为常态）
+    public int shieldCount = 0;       // Remaining block instances
+    public float damageMultiplier = 1.0f; // Attack damage multiplier (1.0 is baseline)
 
     public PlayerBuffManager(PApplet parent) {
         this.parent = parent;
     }
 
-    // 激活道具BUFF
+    // Activate item BUFF bonuses
     public void activateBuff(int count, float multiplier) {
         this.shieldCount = count;
         this.damageMultiplier = multiplier;
     }
 
-    // 核心拦截：当受到伤害时，判断是否用护盾抵挡
+    // Core Interception: Determines if incoming damage can be absorbed by the Aegis shield
     public boolean tryBlockDamage() {
         if (shieldCount > 0) {
             shieldCount--;
-            System.out.println("🛡️ [圣盾格挡] 成功拦截伤害！剩余格挡次数: " + shieldCount + " 次");
+            System.out.println("🛡️ [Aegis Block] Damage successfully deflected! Shield charges left: " + shieldCount);
             
-            // 如果次数耗尽，攻击力加成立刻失效，打回原形
+            // If charges are depleted, the attack multiplier resets immediately
             if (shieldCount <= 0) {
                 damageMultiplier = 1.0f;
-                System.out.println("🥀 [BUFF失效] 10 次圣盾格挡已全部耗尽！攻击力恢复常态。");
+                System.out.println("🥀 [BUFF Expired] All 10 Aegis charges depleted! Attack modifier reverted to baseline.");
             }
-            return true; // 代表成功免疫了这次伤害
+            return true; // Successfully mitigated incoming damage instance
         }
-        return false; // 没有护盾，正常掉血
+        return false; // No shield charges remaining, take raw damage
     }
 
-    // ==========================================
-    // 💡 修复后的大功臣：传参和返回值名字对齐！
-    // ==========================================
+    // =========================================================================
+    // 💡 Aligned signature tracking parameters and modified returns
+    // =========================================================================
     public float getBuffedDamage(float baseDamage) {
         return baseDamage * damageMultiplier; 
     }
